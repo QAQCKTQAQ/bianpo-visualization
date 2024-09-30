@@ -8,7 +8,7 @@ import axios from 'axios';  // 导入 axios
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
-const SearchMenu = ({ onDataFetched }) => {
+const SearchMenu = ({ onDataFetched, onSearchParamsChange }) => {
   const [dates, setDates] = useState(null);
   const [every, setEvery] = useState('5m');
   const [menuVisible, setMenuVisible] = useState(false);
@@ -25,10 +25,12 @@ const SearchMenu = ({ onDataFetched }) => {
   ];
 
   const handleDateChange = (value) => {
+    console.log('选择的日期:', value);
     setDates(value);
   };
 
   const handlePresetRangeClick = (range) => {
+    console.log('选择的日期:', range);
     setDates(range);
   };
 
@@ -54,7 +56,7 @@ const SearchMenu = ({ onDataFetched }) => {
       });
   }, []);
 
-  const handleConfirm = () => {
+  const handleConfirm = async() => {
     if (!selectedDevice) {
       message.error('请选择设备');
       return;
@@ -63,26 +65,32 @@ const SearchMenu = ({ onDataFetched }) => {
       message.error('请选择时间段');
       return;
     }
-    message.success(`时间范围: ${moment(dates[0]).format('YYYY-MM-DD HH:mm')} 到 ${moment(dates[1]).format('YYYY-MM-DD HH:mm')}`);
+    const startDate = dates[0].format('YYYY-MM-DD HH:mm'); // 使用 moment 对象格式化
+    const endDate = dates[1].format('YYYY-MM-DD HH:mm');
+    message.success(`时间范围: ${startDate} 到 ${endDate}`);
     message.success(`采样间隔: ${every}`);
     message.success(`设备ID: ${selectedDevice}`);
 
-    // 发起请求，使用 selectedDevice, dates 和 interval 作为请求参数
-    axios.post('http://localhost:8080/api/data', {
-      device_id: selectedDevice,
-      start: dates[0],
-      end: dates[1],
-      every,
-      field: 'battery_percent'
-    })
-    .then(response => {
-      console.log('请求成功:', response.data);
-      onDataFetched(response.data);  // 传递数据到 App.js
-    })
-    .catch(error => {
+    try {
+      const fields = ['battery_percent', 'solar_panel_power', 'led_power']; // 根据需求定义字段
+      const requests = fields.map(field =>
+        axios.post('http://localhost:8080/api/data', {
+          device_id: selectedDevice,
+          start: dates[0],
+          end: dates[1],
+          every,
+          field,
+        })
+      );
+
+      const responses = await Promise.all(requests);
+      const dataSets = responses.map(response => response.data);
+      onDataFetched(...dataSets); // 传递三组数据到 App.js
+      onSearchParamsChange({ selectedDevice, dates, every });
+    } catch (error) {
       console.error('请求失败:', error);
-    });
-    setMenuVisible(false); // 点击确定后关闭菜单
+    }
+    setMenuVisible(false);
   };
 
   const handleCancel = () => {
@@ -98,7 +106,7 @@ const SearchMenu = ({ onDataFetched }) => {
         <RangePicker
           showTime
           format="YYYY-MM-DD HH:mm"
-          onChange={handleDateChange}
+          onOk={handleDateChange}
         />
       </div>
 

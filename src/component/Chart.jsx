@@ -1,59 +1,75 @@
 // src/component/Chart.jsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Chart } from '@antv/g2';
+import { Slider } from 'antd';
 
-const MyChart = ({ data }) => {
+const MyChart = ({ data, yField, yLabel }) => {
   const chartRef = useRef(null);
+  const [sliderRange, setSliderRange] = useState([0, 100]);
+  const chartInstance = useRef(null); // 用于保存图表实例
 
   useEffect(() => {
-    const chart = new Chart({
+    chartInstance.current = new Chart({
       container: chartRef.current,
       autoFit: true,
       height: 500,
     });
 
-    chart.data(data);
-    chart.scale({
+    chartInstance.current.data(data);
+    chartInstance.current.scale({
         timestamp: {
           type: 'time',
           alias: '时间',
           mask: 'YYYY-MM-DD HH:mm:ss', // 确保显示格式
         },
-        batteryPercent: {
+        [yField]: {
           min: 0,
-          max: 100, // 假设电量百分比范围为 0-100
-          alias: '电量',
+          alias: yLabel,
         },
     });
     
-    chart.line().position('timestamp*batteryPercent').shape('smooth');
-    chart.point().position('timestamp*batteryPercent').shape('circle');
-    chart.tooltip({
-      showCrosshairs: true,
-      shared: true,
-    });
+    chartInstance.current.line().position(`timestamp*${yField}`).shape('smooth');
+    chartInstance.current.point().position(`timestamp*${yField}`).shape('circle');
 
-    chart.tooltip({
+    chartInstance.current.tooltip({
         showCrosshairs: true,
-
         shared: true,
-        
         formatter: (item) => {
           return {
-            name: '时间',
-            value: item.timestamp, // 直接使用传入的时间戳
+            name: yLabel, // 使用传入的 yLabel
+            value: item[yField], // 显示对应 yField 的值
           };
         },
     });
+
     
-    chart.render();
+    chartInstance.current.render();
 
     return () => {
-      chart.destroy(); // 清理
+      chartInstance.current.destroy(); // 清理
     };
-  }, [data]);
+  }, [data, yField, yLabel]);
 
-  return <div ref={chartRef} />;
+  const handleSliderChange = (value) => {
+    const [start, end] = value;
+    setSliderRange(value);
+
+    // 过滤数据以反映 Slider 的范围
+    const filteredData = data.slice(start, end + 1); // 注意这里的过滤
+    chartInstance.current.changeData(filteredData); // 更新图表数据
+  };
+
+  return (<div>
+    <div ref={chartRef} />
+    <Slider
+      range
+      value={sliderRange}
+      min={0}
+      max={data.length - 1}
+      onChange={handleSliderChange}
+      style={{ marginTop: 20 }} // 增加 Slider 的顶部间距
+    />
+  </div>);
 };
 
 export default MyChart;
