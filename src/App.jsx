@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Switch } from 'antd';
-import { PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined } from '@ant-design/icons';
 import SearchMenu from './component/SearchMenu'; // 导入 SearchMenu 组件
 import MyChart from './component/Chart'; // 共享图表组件
-import axios from 'axios';  // 导入 axios
 import { message } from 'antd'; 
 import moment from 'moment';
+import apiClient from './apiClient';
 
 const App = () => {
   const [data1, setData1] = useState(null);
@@ -13,8 +13,15 @@ const App = () => {
   const [data3, setData3] = useState(null);
   const [searchParams, setSearchParams] = useState(null); // 管理搜索参数
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isCollecting, setIsCollecting] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(null); // 用于存储定时器ID
+  const [chartHeight, setChartHeight] = useState(0);
+
+  useEffect(() => {
+    // 获取当前窗口的高度，并计算每个图表的高度
+    const totalHeight = window.innerHeight - 300; // 减去顶部搜索菜单和按钮的高度
+    const chartsCount = [data1, data2, data3].filter(Boolean).length;
+    setChartHeight(chartsCount > 0 ? totalHeight / chartsCount : 0);
+  }, [data1, data2, data3]);
 
   const formatTimestamp = (timestamp) => {
     const date = new Date(timestamp);
@@ -60,7 +67,7 @@ const App = () => {
       if(fromPlay){
         const currentTime = moment(); // 获取当前时间
         const requests = fields.map(field =>
-          axios.post('http://localhost:8080/api/data', {
+          apiClient.post('/api/data', {
             device_id: selectedDevice,
             start: dates[0],
             end: currentTime,
@@ -73,7 +80,7 @@ const App = () => {
         handleDataFetched(...dataSets); // 更新图表数据
       }else{
         const requests = fields.map(field =>
-          axios.post('http://localhost:8080/api/data', {
+          apiClient.post('/api/data', {
             device_id: selectedDevice,
             start: dates[0],
             end: dates[1],
@@ -93,97 +100,47 @@ const App = () => {
   const togglePlaying = async (checked) => {
     setIsPlaying(checked);
     if (checked) {
-      setIsCollecting(true); // 播放开关打开时，采集也打开
-      // 每5分钟刷新一次
-      try {
-        await axios.post('http://localhost:8080/api/collection'); // 打开采集
-        message.success('采集已启动'); // 提示用户
-      } catch (error) {
-        console.error('打开采集失败:', error);
-        message.error('打开采集失败');
-      }
-
+      // 每1分钟刷新一次
       const intervalId = setInterval(() => {
         handleRefresh(true);
-      }, 5 * 60 * 1000); // 5分钟
+      }, 1 * 60 * 1000); // 1分钟
       setRefreshInterval(intervalId);
     } else {
-      setIsCollecting(false); // 关闭时，同时关闭采集
-
-      try {
-        await axios.post('http://localhost:8080/api/close'); // 关闭采集
-        message.success('采集已停止'); // 提示用户
-      } catch (error) {
-        console.error('关闭采集失败:', error);
-        message.error('关闭采集失败');
-      }
-
       clearInterval(refreshInterval); // 关闭播放时，清除定时器
       setRefreshInterval(null); // 重置定时器ID
     }
   };
-  
-  const toggleCollecting = async (checked) => {
-    setIsCollecting(checked);
-    if (checked) {
-      try {
-        await axios.post('http://localhost:8080/api/collection'); // 打开采集
-        message.success('采集已启动'); // 提示用户
-      } catch (error) {
-        console.error('打开采集失败:', error);
-        message.error('打开采集失败');
-      }
-    } else {
-      try {
-        await axios.post('http://localhost:8080/api/close'); // 关闭采集
-        message.success('采集已停止'); // 提示用户
-      } catch (error) {
-        console.error('关闭采集失败:', error);
-        message.error('关闭采集失败');
-      }
-      setIsPlaying(false); // 关闭采集时，播放也关闭
-    }
-  };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
         <SearchMenu onDataFetched={handleDataFetched} onSearchParamsChange={handleSearchParamsChange}/>
         <Button icon={<ReloadOutlined />} style={{ marginLeft: 10 }} onClick={handleRefresh}>刷新</Button>
-        <Switch 
+        <Switch
           checked={isPlaying}
-          onChange={togglePlaying} 
-          style={{ margin: '0 10px' }} 
-          checkedChildren="播放" 
-          unCheckedChildren="停止" 
-        />
-        <Switch 
-          checked={isCollecting} 
-          trackHeight="50"
-          handleSize='30'
-          onChange={toggleCollecting} 
-          style={{ margin: '0 10px' }} 
-          checkedChildren="采集" 
-          unCheckedChildren="停止" 
+          onChange={togglePlaying}
+          style={{ margin: '0 10px' }}
+          checkedChildren="播放"
+          unCheckedChildren="停止"
         />
       </div>
       <div>
         {data1 && (
-          <div style={{ marginBottom: '100px' }}>
-            <h3>电量趋势图</h3>
-            <MyChart data={data1} yField="batteryPercent" yLabel="电量" />
+          <div style={{ marginBottom: '0px' }}>
+            <h5>电量趋势图</h5>
+            <MyChart data={data1} yField="batteryPercent" yLabel="电量" height={chartHeight} />
           </div>
         )}
         {data2 && (
-          <div style={{ marginBottom: '100px' }}>
-            <h3>太阳能电池板功率趋势图</h3>
-            <MyChart data={data2} yField="solarPanelPower" yLabel="太阳能电池板功率" />
+          <div style={{ marginBottom: '0px' }}>
+            <h5>功率趋势图</h5>
+            <MyChart data={data2} yField="solarPanelPower" yLabel="太阳能电池板功率" height={chartHeight} />
           </div>
         )}
         {data3 && (
-          <div style={{ marginBottom: '100px' }}>
-            <h3>LED功率趋势图</h3>
-            <MyChart data={data3} yField="ledPower" yLabel="LED功率" />
+          <div style={{ marginBottom: '0px' }}>
+            <h5>负载趋势图</h5>
+            <MyChart data={data3} yField="ledPower" yLabel="LED功率" height={chartHeight} />
           </div>
         )}
       </div>

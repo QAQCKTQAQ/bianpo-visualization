@@ -1,0 +1,17 @@
+/* .custom-dropdown-menu {
+    width: 300px;
+    height: auto; 
+    padding: 16px;
+    box-sizing: border-box; 
+  }
+  
+  .custom-dropdown-menu .ant-space {
+    justify-content: flex-start; 
+  }
+  
+  .custom-dropdown-menu .ant-btn {
+    min-width: 80px; 
+  
+  .custom-dropdown-menu .ant-select, .custom-dropdown-menu .ant-picker {
+    width: 100%; 
+  
