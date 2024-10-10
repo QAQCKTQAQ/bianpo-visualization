@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Switch } from 'antd';
+import { Button, Switch, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import SearchMenu from './component/SearchMenu'; // 导入 SearchMenu 组件
 import MyChart from './component/Chart'; // 共享图表组件
 import { message } from 'antd'; 
 import moment from 'moment';
 import apiClient from './apiClient';
+
+const { Title } = Typography;
 
 const App = () => {
   const [data1, setData1] = useState(null);
@@ -15,10 +17,11 @@ const App = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(null); // 用于存储定时器ID
   const [chartHeight, setChartHeight] = useState(0);
+  const [selectedDeviceName, setSelectedDeviceName] = useState(''); // 新增状态来保存设备名称
 
   useEffect(() => {
     // 获取当前窗口的高度，并计算每个图表的高度
-    const totalHeight = window.innerHeight - 300; // 减去顶部搜索菜单和按钮的高度
+    const totalHeight = window.innerHeight - 400; // 减去顶部搜索菜单和按钮的高度
     const chartsCount = [data1, data2, data3].filter(Boolean).length;
     setChartHeight(chartsCount > 0 ? totalHeight / chartsCount : 0);
   }, [data1, data2, data3]);
@@ -49,6 +52,10 @@ const App = () => {
 
   const handleSearchParamsChange = (params) => {
     setSearchParams(params); // 更新搜索参数
+    // 更新设备名称
+    if (params.selectedDeviceName) {
+      setSelectedDeviceName(params.selectedDeviceName); // 假设 selectedDevice 是设备名称
+    }
   };
 
   const handleRefresh = async (fromPlay = false) => {
@@ -56,19 +63,18 @@ const App = () => {
       message.error('没有搜索参数，请先选择设备和时间范围。'); // 显示错误提示
       return; // 如果没有参数，则不执行刷新
     }
-    const { selectedDevice, dates, every } = searchParams; // 获取保存的搜索参数
-    if (!selectedDevice || !dates) {
+    const { selectedDeviceId, dates, every } = searchParams; // 获取保存的搜索参数
+    if (!selectedDeviceId || !dates) {
       message.error('请确保设备和时间范围已选择。'); // 显示错误提示
       return; // 如果没有参数，则不执行刷新
     }
-    console.log(fromPlay);
     try {
       const fields = ['battery_percent', 'solar_panel_power', 'led_power']; // 根据需求定义字段
-      if(fromPlay){
+      if (fromPlay) {
         const currentTime = moment(); // 获取当前时间
         const requests = fields.map(field =>
           apiClient.post('/api/data', {
-            device_id: selectedDevice,
+            device_id: selectedDeviceId,
             start: dates[0],
             end: currentTime,
             every,
@@ -78,10 +84,10 @@ const App = () => {
         const responses = await Promise.all(requests);
         const dataSets = responses.map(response => response.data);
         handleDataFetched(...dataSets); // 更新图表数据
-      }else{
+      } else {
         const requests = fields.map(field =>
           apiClient.post('/api/data', {
-            device_id: selectedDevice,
+            device_id: selectedDeviceId,
             start: dates[0],
             end: dates[1],
             every,
@@ -111,10 +117,50 @@ const App = () => {
     }
   };
 
+  // 添加初始数据加载的 useEffect
+  useEffect(() => {
+    const loadDefaultData = async () => {
+      const defaultDeviceId = 'nj2ykm5rq8tdyq3o2023101720774144'; // 默认设备ID
+      const defaultDeviceName = 'ZJ-LS-JY_1-0001'; // 默认设备名称
+      const defaultDates = [moment().subtract(24, 'hours'), moment()]; // 默认时间范围，最近24小时
+      const defaultEvery = '5m'; // 默认采样间隔
+
+      const fields = ['battery_percent', 'solar_panel_power', 'led_power'];
+
+      try {
+        const requests = fields.map(field =>
+          apiClient.post('/api/data', {
+            device_id: defaultDeviceId,
+            start: defaultDates[0],
+            end: defaultDates[1],
+            every: defaultEvery,
+            field,
+          })
+        );
+        const responses = await Promise.all(requests);
+        const dataSets = responses.map(response => response.data);
+        handleDataFetched(...dataSets); // 更新图表数据
+
+        // 更新搜索参数
+        setSearchParams({
+          selectedDeviceId: defaultDeviceId,
+          selectedDeviceName: defaultDeviceName,
+          dates: defaultDates,
+          every: defaultEvery,
+        });
+        setSelectedDeviceName(defaultDeviceName); // 显示设备名称
+      } catch (error) {
+        console.error('加载默认数据失败:', error);
+      }
+    };
+
+    loadDefaultData(); // 在组件挂载时加载默认数据
+  }, []);
+
   return (
     <div style={{ padding: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
-        <SearchMenu onDataFetched={handleDataFetched} onSearchParamsChange={handleSearchParamsChange}/>
+        <SearchMenu onDataFetched={handleDataFetched} onSearchParamsChange={handleSearchParamsChange} />
         <Button icon={<ReloadOutlined />} style={{ marginLeft: 10 }} onClick={handleRefresh}>刷新</Button>
         <Switch
           checked={isPlaying}
@@ -124,6 +170,11 @@ const App = () => {
           unCheckedChildren="停止"
         />
       </div>
+      {selectedDeviceName && ( // 显示当前设备名称
+        <Title level={4} style={{ textAlign: 'center', marginBottom: 0 }}>
+          当前设备: {selectedDeviceName}
+        </Title>
+      )}
       <div>
         {data1 && (
           <div style={{ marginBottom: '0px' }}>

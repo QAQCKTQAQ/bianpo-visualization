@@ -7,7 +7,7 @@ const MyChart = ({ data, yField, yLabel, height }) => {
 
   const maxValues = {
     ledPower: 50,
-    solarPanelPower: 100,
+    solarPanelPower: 500,
     batteryPercent: 100,
   };
 
