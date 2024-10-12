@@ -64,13 +64,14 @@ const App = () => {
       return; // 如果没有参数，则不执行刷新
     }
     const { selectedDeviceId, dates, every } = searchParams; // 获取保存的搜索参数
+    console.log(dates);
     if (!selectedDeviceId || !dates) {
       message.error('请确保设备和时间范围已选择。'); // 显示错误提示
       return; // 如果没有参数，则不执行刷新
     }
     try {
       const fields = ['battery_percent', 'solar_panel_power', 'led_power']; // 根据需求定义字段
-      if (fromPlay) {
+      if (!fromPlay) {
         const currentTime = moment(); // 获取当前时间
         const requests = fields.map(field =>
           apiClient.post('/api/data', {
@@ -106,10 +107,9 @@ const App = () => {
   const togglePlaying = async (checked) => {
     setIsPlaying(checked);
     if (checked) {
-      // 每1分钟刷新一次
       const intervalId = setInterval(() => {
-        handleRefresh(true);
-      }, 1 * 60 * 1000); // 1分钟
+        handleRefresh(false);
+      }, 5 * 60 * 1000); 
       setRefreshInterval(intervalId);
     } else {
       clearInterval(refreshInterval); // 关闭播放时，清除定时器
@@ -156,6 +156,13 @@ const App = () => {
 
     loadDefaultData(); // 在组件挂载时加载默认数据
   }, []);
+
+  // 添加 useEffect，当 searchParams 改变时，如果播放状态为打开则关闭播放
+  useEffect(() => {
+    if (isPlaying) {
+      togglePlaying(false); // 如果播放状态为打开，关闭它
+    }
+  }, [searchParams]); // 依赖 searchParams，当其变化时触发
 
   return (
     <div style={{ padding: 10 }}>

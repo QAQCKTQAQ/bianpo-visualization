@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import { Dropdown, Button, Space, DatePicker, Select, message } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import moment from 'moment';
@@ -27,20 +28,30 @@ const SearchMenu = ({ onDataFetched, onSearchParamsChange }) => {
 
   const handleDateChange = (value) => {
     // console.log('选择的日期:', value);
-    setDates(value);
-    console.log('选择的日期:', dates);
-    console.log('选择的日期:', dates[0]);
-    console.log('选择的日期:', dates[1]);
+    
+    flushSync(() => {
+      setDates(value);
+      // console.log('选择的日期:', dates);
+      // console.log('选择的日期:', dates[0]);
+      // console.log('选择的日期:', dates[1]);
+    });
+    
   };
+
 
   const handlePresetRangeChange = (value) => {
     const selectedRange = presetRanges.find(range => range.label === value);
     if (selectedRange) {
       // console.log('选择的日期:', selectedRange.value);
-      setDates(selectedRange.value);
-      console.log('选择的日期:', dates);
-      console.log('选择的日期:', dates[0]);
-      console.log('选择的日期:', dates[1]);
+      
+      flushSync(() => {
+        setDates(selectedRange.value);
+        // console.log('选择的日期:', dates);
+        // console.log('选择的日期:', dates[0]);
+        // console.log('选择的日期:', dates[1]);
+      });
+
+      
     }
   };
 
@@ -97,13 +108,13 @@ useEffect(() => {
       message.error('请选择时间段');
       return;
     }
-
+    console.log('选择的日期:', dates);
     const selectedDeviceId = getDeviceIdByName(selectedDeviceName);
     const startDate = dates[0].format('YYYY-MM-DD HH:mm');
     const endDate = dates[1].format('YYYY-MM-DD HH:mm');
     message.success(`时间范围: ${startDate} 到 ${endDate}`);
     message.success(`采样间隔: ${every}`);
-    message.success(`设备ID: ${selectedDeviceId}`);
+    message.success(`设备ID: ${selectedDeviceName}`);
 
     try {
       const fields = ['battery_percent', 'solar_panel_power', 'led_power'];
