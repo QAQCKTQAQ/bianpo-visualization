@@ -3,7 +3,8 @@ import axios from 'axios';
 
 // 创建一个 Axios 实例
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080', // 基础 URL
+  // baseURL: 'http://localhost:8080', // 基础 URL
+  // baseURL: 'http://bianpo-vi-backend:8080', // 基础 URL
   timeout: 10000, // 请求超时设置
 });
 

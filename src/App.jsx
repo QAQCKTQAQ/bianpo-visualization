@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button, Switch, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import SearchMenu from './component/SearchMenu'; // 导入 SearchMenu 组件
@@ -18,10 +18,12 @@ const App = () => {
   const [refreshInterval, setRefreshInterval] = useState(null); // 用于存储定时器ID
   const [chartHeight, setChartHeight] = useState(0);
   const [selectedDeviceName, setSelectedDeviceName] = useState(''); // 新增状态来保存设备名称
+  const [over100Duration, setOver100Duration] = useState(''); // 新增状态来保存大于100点数的时长
+
 
   useEffect(() => {
     // 获取当前窗口的高度，并计算每个图表的高度
-    const totalHeight = window.innerHeight - 400; // 减去顶部搜索菜单和按钮的高度
+    const totalHeight = window.innerHeight - 330; // 减去顶部搜索菜单和按钮的高度
     const chartsCount = [data1, data2, data3].filter(Boolean).length;
     setChartHeight(chartsCount > 0 ? totalHeight / chartsCount : 0);
   }, [data1, data2, data3]);
@@ -31,6 +33,27 @@ const App = () => {
     return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
   };
 
+  const calculateDuration1 = async(params) => {
+    const response = await apiClient.post('/api/data', {
+        device_id: params.selectedDeviceId,
+        start: params.dates[0],
+        end: params.dates[1],
+        every: '5m',
+        field: 'solar_panel_power',
+      })
+    const data = response.data;
+    return data
+  };
+
+  const calculateDuration2 = (data) => {
+    const filteredData = data.filter(point => point.solarPanelPower > 100);
+    const pointCount = filteredData.length
+    let totalMinutes = 0;
+    totalMinutes = 5 * pointCount;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}小时${minutes}分钟`;
+  };
   const handleDataFetched = (fetchedData1, fetchedData2, fetchedData3) => {
     const processedData1 = fetchedData1.map(item => ({
       ...item,
@@ -44,27 +67,27 @@ const App = () => {
       ...item,
       timestamp: formatTimestamp(item.timestamp),
     }));
-
     setData1(processedData1);
     setData2(processedData2);
     setData3(processedData3);
   };
 
-  const handleSearchParamsChange = (params) => {
+  const handleSearchParamsChange = async(params) => {
     setSearchParams(params); // 更新搜索参数
     // 更新设备名称
     if (params.selectedDeviceName) {
       setSelectedDeviceName(params.selectedDeviceName); // 假设 selectedDevice 是设备名称
     }
+    const DATA = await calculateDuration1(params);
+    setOver100Duration(calculateDuration2(DATA));
+    
   };
-
   const handleRefresh = async (fromPlay = false) => {
     if (!searchParams) {
       message.error('没有搜索参数，请先选择设备和时间范围。'); // 显示错误提示
       return; // 如果没有参数，则不执行刷新
     }
     const { selectedDeviceId, dates, every } = searchParams; // 获取保存的搜索参数
-    console.log(dates);
     if (!selectedDeviceId || !dates) {
       message.error('请确保设备和时间范围已选择。'); // 显示错误提示
       return; // 如果没有参数，则不执行刷新
@@ -107,13 +130,16 @@ const App = () => {
   const togglePlaying = async (checked) => {
     setIsPlaying(checked);
     if (checked) {
+      if (refreshInterval) {
+        clearInterval(refreshInterval); // 清除之前的定时器
+      }
       const intervalId = setInterval(() => {
         handleRefresh(false);
-      }, 5 * 60 * 1000); 
+      }, 5 * 60 * 1000);
       setRefreshInterval(intervalId);
     } else {
-      clearInterval(refreshInterval); // 关闭播放时，清除定时器
-      setRefreshInterval(null); // 重置定时器ID
+      clearInterval(refreshInterval);
+      setRefreshInterval(null);
     }
   };
 
@@ -166,22 +192,28 @@ const App = () => {
 
   return (
     <div style={{ padding: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
-        <SearchMenu onDataFetched={handleDataFetched} onSearchParamsChange={handleSearchParamsChange} />
-        <Button icon={<ReloadOutlined />} style={{ marginLeft: 10 }} onClick={handleRefresh}>刷新</Button>
-        <Switch
-          checked={isPlaying}
-          onChange={togglePlaying}
-          style={{ margin: '0 10px' }}
-          checkedChildren="播放"
-          unCheckedChildren="停止"
-        />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <Title level={4} style={{ margin: 0 }}>
+            当前设备: {selectedDeviceName}
+          </Title>
+            <div style={{ fontSize: '16px', marginTop: '4px' }}>
+              日照时长：{over100Duration}
+            </div>
+        </div>
+        <div>
+          <SearchMenu onDataFetched={handleDataFetched} onSearchParamsChange={handleSearchParamsChange} />
+          <Button icon={<ReloadOutlined />} style={{ marginLeft: 10 }} onClick={handleRefresh}>刷新</Button>
+          <Switch
+            checked={isPlaying}
+            onChange={togglePlaying}
+            style={{ margin: '0 10px' }}
+            checkedChildren="播放"
+            unCheckedChildren="停止"
+          />
+        </div>
+        
       </div>
-      {selectedDeviceName && ( // 显示当前设备名称
-        <Title level={4} style={{ textAlign: 'center', marginBottom: 0 }}>
-          当前设备: {selectedDeviceName}
-        </Title>
-      )}
       <div>
         {data1 && (
           <div style={{ marginBottom: '0px' }}>

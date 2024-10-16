@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { flushSync } from 'react-dom';
 import { Dropdown, Button, Space, DatePicker, Select, message } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import moment from 'moment';
@@ -27,36 +26,18 @@ const SearchMenu = ({ onDataFetched, onSearchParamsChange }) => {
   ];
 
   const handleDateChange = (value) => {
-    // console.log('选择的日期:', value);
-    
-    flushSync(() => {
       setDates(value);
-      // console.log('选择的日期:', dates);
-      // console.log('选择的日期:', dates[0]);
-      // console.log('选择的日期:', dates[1]);
-    });
-    
   };
-
 
   const handlePresetRangeChange = (value) => {
     const selectedRange = presetRanges.find(range => range.label === value);
     if (selectedRange) {
-      // console.log('选择的日期:', selectedRange.value);
-      
-      flushSync(() => {
-        setDates(selectedRange.value);
-        // console.log('选择的日期:', dates);
-        // console.log('选择的日期:', dates[0]);
-        // console.log('选择的日期:', dates[1]);
-      });
-
-      
+        setDates(selectedRange.value); 
     }
   };
 
   const handleEveryChange = (value) => {
-    setEvery(value);
+      setEvery(value);
   };
 
   // 从设备名查找设备ID
@@ -95,7 +76,7 @@ useEffect(() => {
       setDeviceIdToName(deviceIdToName);
     })
     .catch(error => {
-      console.error("获取设备列表失败: ", error);
+      message.error(`请求失败: ${error.message}`);
     });
 }, []);
 
@@ -108,7 +89,6 @@ useEffect(() => {
       message.error('请选择时间段');
       return;
     }
-    console.log('选择的日期:', dates);
     const selectedDeviceId = getDeviceIdByName(selectedDeviceName);
     const startDate = dates[0].format('YYYY-MM-DD HH:mm');
     const endDate = dates[1].format('YYYY-MM-DD HH:mm');
@@ -130,10 +110,10 @@ useEffect(() => {
 
       const responses = await Promise.all(requests);
       const dataSets = responses.map(response => response.data);
-      onDataFetched(...dataSets); // 传递三组数据到 App.js
       onSearchParamsChange({ selectedDeviceId, selectedDeviceName, dates, every });
+      onDataFetched(...dataSets); // 传递三组数据到 App.js
     } catch (error) {
-      console.error('请求失败:', error);
+      message.error(`请求失败: ${error.message}`);
     }
     setMenuVisible(false);
   };
@@ -153,7 +133,6 @@ useEffect(() => {
       }
       if (window.innerWidth > 800 ) {
         setIsDropdownDisabled(false); // 恢复 Dropdown
-        // setMenuVisible(true);
       }
     };
 
@@ -223,7 +202,7 @@ useEffect(() => {
           <Option value="30m">30分钟</Option>
           <Option value="1h">1小时</Option>
           <Option value="12h">12小时</Option>
-          <Option value="1d">1天</Option>
+          <Option value="24h">1天</Option>
         </Select>
       </div>
 
